@@ -1,0 +1,151 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+
+  <title>Data_China: Monetary Economics</title>
+
+  <link rel="stylesheet" href="style.css" />
+
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+</head>
+
+<body>
+  <main class="container">
+    <header>
+      <div class="label">Data_China</div>
+      <h1>Monetary Economics</h1>
+      <p class="subtitle">
+        A simple visualization of China&apos;s money supply and real GDP.
+      </p>
+    </header>
+
+    <section class="card">
+      <h2>Lead-Lag Correlations between Detrended Money Supply and Real GDP</h2>
+
+      <p class="note">
+        Positive lags indicate that money supply leads real GDP.
+        Negative lags indicate that money supply lags real GDP.
+      </p>
+
+      <canvas id="corrChart"></canvas>
+    </section>
+
+    <section class="explain">
+      <div>
+        <h3>How to read this chart?</h3>
+        <p>
+          The chart shows correlations between detrended real GDP and detrended
+          M0, M1, and M2 from -8 to +8 quarters.
+          A higher correlation means stronger cyclical comovement.
+        </p>
+      </div>
+
+      <div>
+        <h3>Data and method</h3>
+        <p>
+          Monthly money supply data are converted to quarterly frequency and
+          matched with quarterly real GDP. All series are detrended using the HP
+          filter before calculating correlations.
+        </p>
+      </div>
+    </section>
+
+    <footer>
+      <p>Last updated: 2026Q1</p>
+      <p>
+        Download data:
+        <a href="data/gdp_money_corr.csv">gdp_money_corr.csv</a>
+      </p>
+      <p>Source: National Bureau of Statistics; People&apos;s Bank of China.</p>
+    </footer>
+  </main>
+
+  <script>
+    async function loadCSV() {
+      const response = await fetch("data/gdp_money_corr.csv");
+      const text = await response.text();
+
+      const rows = text.trim().split("\n").slice(1);
+
+      const lag = [];
+      const m0 = [];
+      const m1 = [];
+      const m2 = [];
+
+      rows.forEach(row => {
+        const cols = row.split(",");
+        lag.push(cols[0]);
+        m0.push(parseFloat(cols[1]));
+        m1.push(parseFloat(cols[2]));
+        m2.push(parseFloat(cols[3]));
+      });
+
+      const ctx = document.getElementById("corrChart");
+
+      new Chart(ctx, {
+        type: "line",
+        data: {
+          labels: lag,
+          datasets: [
+            {
+              label: "M0",
+              data: m0,
+              borderWidth: 2,
+              pointRadius: 3,
+              tension: 0.25
+            },
+            {
+              label: "M1",
+              data: m1,
+              borderWidth: 2,
+              pointRadius: 3,
+              borderDash: [8, 5],
+              tension: 0.25
+            },
+            {
+              label: "M2",
+              data: m2,
+              borderWidth: 2,
+              pointRadius: 3,
+              borderDash: [10, 4, 2, 4],
+              tension: 0.25
+            }
+          ]
+        },
+        options: {
+          responsive: true,
+          plugins: {
+            legend: {
+              position: "top"
+            },
+            tooltip: {
+              mode: "index",
+              intersect: false
+            }
+          },
+          scales: {
+            x: {
+              title: {
+                display: true,
+                text: "Lag in quarters"
+              }
+            },
+            y: {
+              min: -1,
+              max: 1,
+              title: {
+                display: true,
+                text: "Correlation"
+              }
+            }
+          }
+        }
+      });
+    }
+
+    loadCSV();
+  </script>
+</body>
+</html>
