@@ -63,43 +63,78 @@
   </main>
 
   <script>
+    function parseCSV(text) {
+      const lines = text.trim().split(/\r?\n/);
+      const header = lines[0].split(",").map(x => x.trim());
+
+      const seriesIndex = header.indexOf("series");
+      const lagIndex = header.indexOf("j");
+      const corrIndex = header.indexOf("corr");
+
+      if (seriesIndex === -1 || lagIndex === -1 || corrIndex === -1) {
+        throw new Error("CSV must contain columns: series, j, corr");
+      }
+
+      const data = [];
+
+      for (let i = 1; i < lines.length; i++) {
+        const cols = lines[i].split(",").map(x => x.trim());
+
+        data.push({
+          series: cols[seriesIndex],
+          lag: Number(cols[lagIndex]),
+          corr: Number(cols[corrIndex])
+        });
+      }
+
+      return data.filter(d =>
+        d.series &&
+        Number.isFinite(d.lag) &&
+        Number.isFinite(d.corr)
+      );
+    }
+
+    function buildSeriesData(rows, seriesName, lags) {
+      return lags.map(lag => {
+        const row = rows.find(d => d.series === seriesName && d.lag === lag);
+        return row ? row.corr : null;
+      });
+    }
+
     async function loadCSV() {
       const response = await fetch("data/gdp_money_corr.csv");
+
+      if (!response.ok) {
+        throw new Error("Cannot load data/gdp_money_corr.csv");
+      }
+
       const text = await response.text();
+      const rows = parseCSV(text);
 
-      const rows = text.trim().split("\n").slice(1);
+      const lags = [...new Set(rows.map(d => d.lag))].sort((a, b) => a - b);
 
-      const lag = [];
-      const m0 = [];
-      const m1 = [];
-      const m2 = [];
-
-      rows.forEach(row => {
-        const cols = row.split(",");
-        lag.push(cols[0]);
-        m0.push(parseFloat(cols[1]));
-        m1.push(parseFloat(cols[2]));
-        m2.push(parseFloat(cols[3]));
-      });
+      const m0 = buildSeriesData(rows, "M0", lags);
+      const m1 = buildSeriesData(rows, "M1", lags);
+      const m2 = buildSeriesData(rows, "M2", lags);
 
       const ctx = document.getElementById("corrChart");
 
       new Chart(ctx, {
         type: "line",
         data: {
-          labels: lag,
+          labels: lags,
           datasets: [
             {
               label: "M0",
               data: m0,
-              borderWidth: 2,
+              borderWidth: 2.5,
               pointRadius: 3,
               tension: 0.25
             },
             {
               label: "M1",
               data: m1,
-              borderWidth: 2,
+              borderWidth: 2.5,
               pointRadius: 3,
               borderDash: [8, 5],
               tension: 0.25
@@ -107,7 +142,7 @@
             {
               label: "M2",
               data: m2,
-              borderWidth: 2,
+              borderWidth: 2.5,
               pointRadius: 3,
               borderDash: [10, 4, 2, 4],
               tension: 0.25
@@ -116,6 +151,7 @@
         },
         options: {
           responsive: true,
+          maintainAspectRatio: true,
           plugins: {
             legend: {
               position: "top"
@@ -133,8 +169,8 @@
               }
             },
             y: {
-              min: -1,
-              max: 1,
+              min: -0.5,
+              max: 0.5,
               title: {
                 display: true,
                 text: "Correlation"
@@ -145,7 +181,13 @@
       });
     }
 
-    loadCSV();
+    loadCSV().catch(error => {
+      console.error(error);
+      document.querySelector(".card").insertAdjacentHTML(
+        "beforeend",
+        `<p style="color: red;">Error loading chart data. Please check data/gdp_money_corr.csv.</p>`
+      );
+    });
   </script>
 </body>
 </html>
